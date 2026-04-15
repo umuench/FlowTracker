@@ -1,266 +1,261 @@
 # FlowTracker
 
-FlowTracker ist eine lokale Windows-Desktop-Anwendung auf Basis von .NET 10 und WPF.
-Die App startet tray-only im Hintergrund und speichert Daten ausschließlich lokal (SQLite), ohne Netzwerkversand.
+FlowTracker ist ein lokaler, tray-basierter Time-Tracker für Windows mit Fokus auf **schnelle Erfassung**, **klare Regeln** und **möglichst wenig Unterbrechung im Arbeitsfluss**.
 
-## Technologie-Stack
+Die Anwendung läuft ohne Cloud-Zwang: Daten bleiben lokal in SQLite.
+
+## Highlights
+
+- Tray-only UX: kein aufdringliches Hauptfenster im Alltag
+- Adaptive Eingabehilfe:
+  - dezenter Reminder-Dot
+  - Orbital-Menü bei Bedarf (stufige Eskalation)
+- Zustandsbasierte Regeln für chronologische Zeiterfassung
+- Dashboard mit Chronik, KPI-Karten und Tages-/Wochen-/Monats-/Jahresansicht
+- CSV- und PDF-Export
+- Lokale Datenhaltung (`%LocalAppData%/FlowTracker/flowtracker.db`)
+
+## Tech Stack
 
 - .NET 10 (`net10.0-windows`)
 - WPF
-- C# (Preview, modernes Sprachlevel)
+- C# (modernes Sprachlevel)
 - SQLite (`Microsoft.Data.Sqlite`)
 - Dapper
-- Tray-Integration mit `H.NotifyIcon.Wpf`
+- QuestPDF
+- Windows Interop (P/Invoke)
 
-## Projektstruktur
+## Architekturüberblick
 
-- `FlowTracker.slnx` - XML-basierte Solution (neues Format)
-- `FlowTracker.csproj` - Projektkonfiguration
-- `App.xaml`, `App.xaml.cs` - WPF-App-Einstiegspunkt und Tray-Only-Startup
+- `App.xaml.cs`: Startup, Tray-Orchestrierung, Idle-/Reminder-Policy
+- `Services/IdleMonitorService.cs`: Idle- und Maus-Signale
+- `Services/WorkStateMachine.cs`: erlaubte Aktionen und Übergänge
+- `ViewModels/*`: MVVM-Logik für Tracking und Dashboard
+- `Repositories/*`: SQLite-Zugriff via Dapper
+- `Views/*`: Orbital, Dashboard, Flyout, Reminder-Dot
+
+## Diagramme
+
+### Use Case
+
+```mermaid
+flowchart LR
+    user[User]
+    tray[TrayIcon]
+    orbital[OrbitalOverlay]
+    dot[ReminderDot]
+    tracking[TrackingSession]
+    dashboard[Dashboard]
+    report[ReportExport]
+    ghost[GhostMode]
+
+    user --> tray
+    user --> orbital
+    user --> dashboard
+    user --> ghost
+    tray --> dot
+    dot --> orbital
+    orbital --> tracking
+    dashboard --> tracking
+    dashboard --> report
+```
+
+### Sequence: Idle Reminder zu Tracking-Aktion
+
+```mermaid
+sequenceDiagram
+    participant IdleMonitor
+    participant App
+    participant ReminderDot
+    participant Orbital
+    participant TrackingVM
+    participant Repo
+
+    IdleMonitor->>App: IdleStateChanged(IsIdle=true)
+    App->>App: EvaluateDisplayDecision()
+    App->>ReminderDot: ShowAtBottomRight()
+    Note over App,ReminderDot: Dezenter Hinweis (Stage 1)
+    ReminderDot->>App: DotClicked()
+    App->>Orbital: ShowAt(anchorX,anchorY,menu)
+    Note over App,Orbital: Eskalation auf Orbital (Stage 2)
+    Orbital->>TrackingVM: MenuItemInvoked(actionKey)
+    TrackingVM->>Repo: StartTrackingAsync(...) / StopTrackingAsync(...)
+    Repo-->>TrackingVM: Persisted
+    TrackingVM-->>App: Status aktualisiert
+    App->>App: ApplyDynamicSuppression()
+```
+
+### Flowchart: Anzeigeentscheidung Reminder/Orbital
+
+```mermaid
+flowchart TD
+    start[Idle Event] --> checkGhost{GhostMode aktiv?}
+    checkGhost -- ja --> hideAll[Orbital und Dot ausblenden]
+    checkGhost -- nein --> checkIdle{IsIdle?}
+    checkIdle -- nein --> activePath[Dot ausblenden, ggf Orbital schließen]
+    checkIdle -- ja --> checkSuppressed{Suppressed oder AwaitingPostSelection?}
+    checkSuppressed -- ja --> noShow[NoShow loggen]
+    checkSuppressed -- nein --> checkFocus{Focus-sensitive Kontext?}
+    checkFocus -- ja --> noShow
+    checkFocus -- nein --> checkActions{AllowedActions vorhanden?}
+    checkActions -- nein --> closeOrbital[Orbital schließen, NoShow loggen]
+    checkActions -- ja --> checkLevel{ReminderLevel}
+    checkLevel -- DotOnly --> showDot[ReminderDot anzeigen]
+    checkLevel -- Orbital --> showOrbital[Orbital mit gefiltertem Menü anzeigen]
+```
+
+### State: Zeiterfassung
+
+```mermaid
+stateDiagram-v2
+    [*] --> OffDuty
+    OffDuty --> Working: StartWork
+    Working --> BreakFlexible: StartFlexibleBreak
+    Working --> BreakFixed: StartFixedBreak
+    BreakFlexible --> Working: ResumeWork
+    BreakFixed --> Working: ResumeWork
+    BreakFlexible --> Ended: EndWork
+    BreakFixed --> Ended: EndWork
+    Working --> Ended: EndWork
+    Ended --> Working: StartWork
+```
 
 ## Voraussetzungen
 
 - Windows 10/11
 - .NET SDK 10.x
 
-SDK-Version prüfen:
+Prüfen:
 
 ```powershell
 dotnet --info
 ```
 
-## Build-Prozess
-
-Alle Kommandos im Projektverzeichnis ausführen.
-
-### 1) Restore
+## Quick Start
 
 ```powershell
 dotnet restore "FlowTracker.slnx"
-```
-
-### 2) Build (Debug)
-
-```powershell
 dotnet build "FlowTracker.slnx" -c Debug
-```
-
-### 3) Starten
-
-```powershell
 dotnet run --project "FlowTracker.csproj" -c Debug
 ```
 
 Erwartetes Verhalten:
 
-- Kein Hauptfenster in der Taskleiste
-- Tray-Icon ist sichtbar
-- Beenden über das Tray-Kontextmenü
+- App startet im Tray
+- Linksklick öffnet Flyout
+- Rechtsklick öffnet Kontextmenü
 
-### 4) Release-Build
+## Build & Publish
+
+Debug Build:
+
+```powershell
+dotnet build "FlowTracker.slnx" -c Debug
+```
+
+Release Build:
 
 ```powershell
 dotnet build "FlowTracker.slnx" -c Release
 ```
 
-### 5) Publish (framework-dependent)
+Publish (framework-dependent):
 
 ```powershell
 dotnet publish "FlowTracker.csproj" -c Release -r win-x64 --self-contained false
 ```
 
-Ausgabe liegt typischerweise unter:
+Output:
 `bin/Release/net10.0-windows/win-x64/publish`
 
-## Native AOT Hinweis
+## Reminder-Profile
 
-Für WPF mit aktuellem .NET SDK kann `PublishAot=true` zu `NETSDK1168` führen.
-Daher ist `PublishAot` aktuell bewusst auf `false` gesetzt.
+FlowTracker unterstützt drei Reminder-Profile:
 
-Sobald WPF-AOT in der Toolchain stabil unterstützt ist, kann der AOT-Workflow wieder aktiviert und hier dokumentiert werden.
+- `quiet`: zurückhaltend, längere Schwellen/Cooldowns
+- `balanced`: Standardprofil
+- `strict`: frühere und häufigere Erinnerung
 
-## Wartung der README
-
-Diese Datei soll bei jedem relevanten Architektur- oder Build-Änderungsschritt aktualisiert werden, insbesondere bei:
-
-- Änderungen an Ziel-Framework oder SDK-Anforderungen
-- neuen Runtime-Parametern (`-r`, `--self-contained`)
-- Aktivierung/Änderung von AOT-Strategien
-- neuen Entwicklungs-/Betriebsabhängigkeiten
-
-## Datenschutz
-
-- Datenspeicherung ausschließlich lokal via SQLite
-- Kein geplanter Versand von Nutzungsdaten über das Netzwerk
-
-## Tray-Icons
-
-- Eigene `.ico`-Dateien liegen unter `Icons/`
-- Build kopiert sie automatisch in das Ausgabeverzeichnis
-- Finale Zuordnung:
-  - Aktiv: `TimeTrackerGreen.ico` (Fallback: `TimeTrackerSchwarz.ico`)
-  - Idle/Pause: `TimeTrackerOrange.ico` (Fallback: Aktiv-Icon)
-  - Ghost Mode: `TimeTrackerGrau.ico` (Fallback: `TimeTrackerTransparent.ico`, dann `TimeTrackerOrange.ico`, sonst Aktiv-Icon)
-  - Aufgabenabhängig (optional, wenn Datei vorhanden):
-    - `Meeting` -> `TimeTrackerRed.ico`
-    - `Admin` -> `TimeTrackerPurple.ico`
-    - `Support`/`Projekt` -> `TimeTrackerBlue.ico`
-    - `Arbeit` -> `TimeTrackerGreen.ico`
-    - `Pause` -> `TimeTrackerOrange.ico`
-- Hinweis:
-  - `TimeTrackerTransparent.ico` wird nicht mehr als Standard für sichtbare Zustände verwendet, um ein unsichtbares Tray-Icon zu vermeiden.
-
-## Schritt-2 Status (Win32 Hooks / Idle)
-
-Aktuell implementiert:
-
-- Win32-P/Invoke Basis in `Interop/NativeMethods.cs`
-  - `GetLastInputInfo` für Idle-Dauer
-  - `GetCursorPos` für Mauskoordinaten
-  - optionale Hook-Signaturen: `SetWindowsHookEx`, `UnhookWindowsHookEx`, `CallNextHookEx`
-- Ressourcenschonender Idle-Monitor in `Services/IdleMonitorService.cs`
-  - `PeriodicTimer` mit 250ms Polling
-  - Idle-Schwelle profilbasiert (`quiet`/`balanced`/`strict`, Default `balanced` = 8s)
-  - Events für Idle-Statuswechsel und Mauspositionsänderung
-- Integration in `App.xaml.cs`
-  - Start des Monitors beim App-Startup
-  - geordneter Shutdown via `DisposeAsync`
-
-## Schritt-3 Status (Orbital Overlay)
-
-Aktuell implementiert:
-
-- `Views/OrbitalWindow.xaml`
-  - rahmenloses Overlay (`WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`)
-  - Ring-UI mit vier Quadranten (`Projekt 1`, `Meeting`, `Pause`, `Admin`)
-  - Storyboard-Animationen für Fade-/Scale-In und Fade-/Scale-Out
-- `Views/OrbitalWindow.xaml.cs`
-  - Positionierung am Mausankerpunkt
-  - sofortiges Ausblenden, wenn Maus den aktiven Ringbereich schnell verlässt
-  - Quadranten-Click-Event (`QuadrantSelected`)
-  - Umschaltung von `WS_EX_TRANSPARENT` (klickbar vs. durchklickbar)
-- `Interop/NativeMethods.cs`
-  - erweitert um `GetWindowLongPtr` und `SetWindowLongPtr` für Ex-Styles
-- `App.xaml.cs`
-  - Overlay-/Reminder-Entscheidung läuft über zentrale Display-Policy mit No-Show-Reason-Codes
-  - Bei Idle erscheint zunächst ein dezenter Dot (unten rechts), Eskalation auf Orbital erfolgt adaptiv
-  - Overlay verschwindet wieder bei Aktivität
-
-## Schritt-4 Status (Datenbank + MVVM)
-
-Aktuell implementiert:
-
-- SQLite-Datenmodell `TimeEntries` mit Feldern:
-  - `Id`, `UserId`, `StartTime`, `EndTime`, `Category`, `Description`, `CreatedAt`, `IsDeleted`
-- Initialisierung und Performance-Basics:
-  - `Infrastructure/DatabaseInitializer.cs` erstellt Schema und Indizes
-  - WAL + `synchronous=NORMAL` für ressourcenschonendes lokales Logging
-- Repositories mit Dapper:
-  - `StartTrackingAsync`
-  - `StopTrackingAsync`
-  - `GetEntriesAsync`
-  - `UpdateEntryAsync`
-  - `DeleteEntryAsync` (Soft Delete via `IsDeleted = 1`)
-- MVVM:
-  - `ViewModels/ViewModelBase.cs` (`INotifyPropertyChanged`)
-  - `ViewModels/TrackingViewModel.cs` mit heutiger Entry-Liste und Status
-- App-Integration:
-  - Datenbankpfad lokal unter `%LocalAppData%/FlowTracker/flowtracker.db`
-  - Quadranten-Click startet Tracking-Kategorie über ViewModel
-  - Tray-Menü enthält `Tracking stoppen`
-
-## Schritt-5 Status (Dashboard + Reporting)
-
-Aktuell implementiert:
-
-- Dashboard-Fenster `Views/DashboardWindow.xaml` mit Tages-/Wochen-/Monats-/Jahresansicht
-- Chronik als editierbare DataGrid-Liste (Start, Ende, Kategorie, Beschreibung)
-- KPI-Karten für Soll/Ist:
-  - `Sollzeit`
-  - `Überstunden`
-  - `Fehlstunden`
-- Tägliche Saldo-Chronik:
-  - Tabelle mit `Tag`, `Ist`, `Soll`, `Saldo`, `kumuliert`
-- UI-CRUD:
-  - Zeile speichern (Update)
-  - Zeile soft-löschen (`IsDeleted = 1`)
-- Reporting:
-  - CSV-Export
-  - PDF-Export (QuestPDF)
-  - Export enthält zusätzlich Dauer je Eintrag sowie Summary-Kennzahlen (Produktiv/Soll/Über/Fehl)
-- Tray-Integration:
-  - `Dashboard öffnen`
-  - `Ghost Mode` (stoppt Tracking sofort, Overlay bleibt aus)
-  - Linksklick auf Tray-Icon öffnet ein kompaktes Flyout nahe Taskleiste
-
-## Regelwerk (Chronologische Führung)
-
-Aktuell umgesetzt im Zustandsautomaten (`Services/WorkStateMachine.cs`) und `TrackingViewModel`:
-
-- Tagesstart nur einmal pro Tag (`StartWork` wird nach bereits gesetztem Tagesstart blockiert)
-- Erlaubte Folge: `OffDuty -> Working -> Break -> Working -> Ended`
-- Aktionen werden zustandsabhängig freigegeben; ungültige Aktionen liefern einen konkreten "Nächster Schritt"-Hinweis
-- Mittagspause (`BreakFixed`) hat eine Mindestdauer von 30 Minuten vor `ResumeWork`
-- Nach Tagesende sind keine neuen Tracking-Aktionen mehr erlaubt
-- Session-State wird nach App-/ViewModel-Neustart aus den heutigen DB-Einträgen rekonstruiert
-
-## Sollzeit & Saldo
-
-Aktuell implementiert:
-
-- `BreakPolicies.TargetWorkMinutes` (Default: 480 Minuten / 8h)
-- Berechnung produktiver Zeit (Pausen exkludiert)
-- Workday-basierte Sollzeitberechnung (Mo-Fr) je gewähltem Zeitraum
-- Saldo-Ableitung:
-  - Überstunden (`+`)
-  - Fehlstunden (`-`)
-
-## Logging & Stabilität
-
-- Dateibasiertes Logging über `Services/AppLogger.cs`
-- Log-Datei: `%LocalAppData%/FlowTracker/logs/app.log`
-- Globale Exception-Handler aktiv:
-  - `DispatcherUnhandledException`
-  - `AppDomain.CurrentDomain.UnhandledException`
-  - `TaskScheduler.UnobservedTaskException`
-- Kritische UI- und Tracking-Events schreiben Fehler und Status ins Log
-- Orbital-Overlay-Stabilisierung:
-  - Interaktions-Pin-Fenster in `App.xaml.cs` verhindert zu frühes Schließen beim ersten Mausweg zur Auswahl
-  - Distanz-/Debounce-Logik in `Views/OrbitalWindow.xaml.cs` nutzt globale Cursorposition (statt nur Window-MouseMove)
-  - Fallback auf Rohmenü, falls Filterung temporär keine auswählbaren Aktionen liefert
-  - Telemetrie zu Show/Hide-Gründen, Sichtdauer und Quick-Dismiss-Serien im Log (`app.log`)
-  - Adaptives Hide-Tuning: bei wiederholten schnellen Abbrüchen erhöht das Overlay temporär Grace/Debounce automatisch
-  - Dynamische Reopen-Suppression berücksichtigt Quick-Dismiss-Streak und ignorierte Reminder
-  - Focus-aware Suppression (erste Ausbaustufe): Orbital/Reminder werden bei Vollbild und bei fokussensitiven Prozessen unterdrückt (`devenv`, `code`, `rider64`, `winword`, `excel`, `powerpnt`, `teams`, `ms-teams`)
-- Zeitformat-Härtung:
-  - Repository persistiert UTC-Zeiten als ISO-8601 (`O`) in SQLite
-  - robustes Parse-Fallback für ältere Bestandswerte
-
-## Reminder-Profile (neu)
-
-- Profilsteuerung über Umgebungsvariable `FLOWTRACKER_REMINDER_PROFILE`
-- Verfügbare Profile:
-  - `quiet` (zurückhaltend, längere Idle-/Cooldown-Zeiten)
-  - `balanced` (Default)
-  - `strict` (frühere und häufigere Erinnerung)
-- Beispiel in PowerShell:
+Steuerung per Umgebungsvariable:
 
 ```powershell
 $env:FLOWTRACKER_REMINDER_PROFILE = "quiet"
 dotnet run --project "FlowTracker.csproj" -c Debug
 ```
 
+## UX: Orbital + Dot + Fokuskontext
+
+Die Reminder-Logik arbeitet in Stufen:
+
+1. Dot als ruhiger Hinweis
+2. Orbital-Einblendung bei notwendiger Aktion
+3. adaptive Suppression bei häufigen schnellen Dismisses
+
+Zusätzlich ist eine erste Focus-Awareness integriert:
+
+- Unterdrückung bei Vollbild-Fenstern
+- Unterdrückung bei fokussensitiven Prozessen (z. B. IDE/Office/Meeting-Apps)
+
+## Regelwerk der Zeiterfassung
+
+Die Erfassung wird über einen Zustandsautomaten geführt:
+
+- `OffDuty -> Working -> Break -> Working -> Ended`
+- Aktionen sind zustandsabhängig freigegeben
+- Ungültige Aktionen liefern konkrete Hinweise
+- Feste Pause hat Mindestdauer vor `ResumeWork`
+- Status wird aus Tagesdaten robust rekonstruiert
+
+## Dashboard & Reporting
+
+- Editierbare Chronik (Start, Ende, Kategorie, Beschreibung)
+- KPI-Karten für Soll/Ist, Über-/Fehlstunden
+- Tägliche Saldo-Chronik mit kumuliertem Verlauf
+- Export:
+  - CSV
+  - PDF (inkl. Summary-Werten)
+
+## Tray-Icons
+
+- Icons liegen unter `Icons/`
+- Zuordnung nach Status/Kontext (mit Fallbacks)
+- Kein unsichtbares Standard-Icon im Normalbetrieb
+
+## Logging & Stabilität
+
+- Dateilogs: `%LocalAppData%/FlowTracker/logs/app.log`
+- Globale Exception-Handler:
+  - `DispatcherUnhandledException`
+  - `AppDomain.CurrentDomain.UnhandledException`
+  - `TaskScheduler.UnobservedTaskException`
+- Orbital-Telemetrie:
+  - Show/Hide-Gründe
+  - Sichtdauer
+  - Quick-Dismiss-Streak
+
+## Datenschutz
+
+- Ausschließlich lokale Datenspeicherung
+- Kein geplanter Netzwerkversand von Trackingdaten
+
 ## Tests
-
-- Testprojekt: `FlowTracker.Tests` (xUnit)
-- In der Solution (`FlowTracker.slnx`) enthalten
-- Aktuelle Unit-Tests:
-  - `EditableTimeEntryRow.TryBuildTimeEntry` (valid/invalid Parsing)
-  - `DashboardViewModel.CalculateRange` (Tag/Woche)
-  - `DashboardViewModel.CountWorkdays` und `CalculateTargetDuration` (Sollzeitberechnung)
-
-Tests ausführen:
 
 ```powershell
 dotnet test "FlowTracker.slnx" -c Debug
 ```
+
+## Roadmap (kurz)
+
+- Feingranulare User-Settings für Icon-/Reminder-Mapping
+- Erweiterte Focus-Erkennung (App-Klassen, Szenarien)
+- Weitere Tests für Reminder-Policy und Suppression-Heuristiken
+
+## Mitwirken
+
+Issues, Vorschläge und Verbesserungen sind willkommen.
+
+Bei größeren Änderungen bitte:
+
+1. eigenes Branching nutzen
+2. Build + Tests lokal ausführen
+3. nachvollziehbare Commit-Messages verwenden
