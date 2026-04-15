@@ -1,0 +1,64 @@
+<Window
+    x:Class="FlowTracker.Views.OrbitalWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Width="320"
+    Height="320"
+    AllowsTransparency="True"
+    Background="Transparent"
+    ResizeMode="NoResize"
+    ShowInTaskbar="False"
+    ShowActivated="False"
+    Topmost="True"
+    WindowStyle="None">
+    <Window.Resources>
+        <Storyboard x:Key="ShowStoryboard">
+            <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX" Duration="0:0:0.18" To="1.0" />
+            <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY" Duration="0:0:0.18" To="1.0" />
+            <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity" Duration="0:0:0.18" To="0.58" />
+        </Storyboard>
+        <Storyboard x:Key="HideStoryboard">
+            <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleX" Duration="0:0:0.12" To="0.86" />
+            <DoubleAnimation Storyboard.TargetName="RootScale" Storyboard.TargetProperty="ScaleY" Duration="0:0:0.12" To="0.86" />
+            <DoubleAnimation Storyboard.TargetName="Root" Storyboard.TargetProperty="Opacity" Duration="0:0:0.12" To="0.0" />
+        </Storyboard>
+    </Window.Resources>
+
+    <Grid x:Name="Root" Opacity="0" RenderTransformOrigin="0.5,0.5">
+        <Grid.RenderTransform>
+            <ScaleTransform x:Name="RootScale" ScaleX="0.86" ScaleY="0.86" />
+        </Grid.RenderTransform>
+
+        <Grid Width="280" Height="280">
+            <Ellipse Stroke="#99E8F1FF" StrokeThickness="7" />
+            <Canvas x:Name="SegmentCanvas" Width="280" Height="280" />
+
+            <Border
+                Width="104"
+                Height="104"
+                Background="#1A111827"
+                BorderBrush="#66E8F1FF"
+                BorderThickness="1"
+                CornerRadius="999"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock
+                        x:Name="CenterTitleText"
+                        Foreground="#ECFEFF"
+                        FontSize="12"
+                        FontWeight="SemiBold"
+                        HorizontalAlignment="Center"
+                        Text="Aktion" />
+                    <Button
+                        x:Name="BackButton"
+                        Margin="0,6,0,0"
+                        Padding="8,3"
+                        Visibility="Collapsed"
+                        Content="Zurück"
+                        Click="BackButton_Click" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

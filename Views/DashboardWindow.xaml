@@ -1,0 +1,186 @@
+<Window
+    x:Class="FlowTracker.Views.DashboardWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="FlowTracker Dashboard"
+    Width="980"
+    Height="560"
+    MinWidth="860"
+    MinHeight="460"
+    WindowStartupLocation="CenterScreen"
+    Background="#11131A">
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="#F3F4F6" />
+            <Setter Property="Background" Value="#2F6FED" />
+            <Setter Property="BorderBrush" Value="#2F6FED" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,14">
+            <TextBlock
+                Text="FlowTracker Dashboard"
+                FontSize="24"
+                FontWeight="Bold"
+                Foreground="#E5E7EB" />
+            <TextBlock
+                DockPanel.Dock="Right"
+                Text="{Binding StatusMessage}"
+                VerticalAlignment="Center"
+                Foreground="#94A3B8" />
+        </DockPanel>
+
+        <UniformGrid Grid.Row="1" Columns="6" Margin="0,0,0,14">
+            <Border Margin="0,0,10,0" CornerRadius="12" Background="#1A2333" Padding="14">
+                <StackPanel>
+                    <TextBlock Text="Gesamtzeit" Foreground="#9CA3AF" />
+                    <TextBlock Text="{Binding TotalDurationText}" Foreground="#F9FAFB" FontSize="24" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Margin="0,0,10,0" CornerRadius="12" Background="#1A2333" Padding="14">
+                <StackPanel>
+                    <TextBlock Text="Einträge" Foreground="#9CA3AF" />
+                    <TextBlock Text="{Binding EntryCountText}" Foreground="#F9FAFB" FontSize="24" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="12" Background="#1A2333" Padding="14">
+                <StackPanel>
+                    <TextBlock Text="Zeitspanne" Foreground="#9CA3AF" />
+                    <TextBlock Text="{Binding ActiveSpanText}" Foreground="#F9FAFB" FontSize="24" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Margin="10,0,0,0" CornerRadius="12" Background="#1A2333" Padding="14">
+                <StackPanel>
+                    <TextBlock Text="Pause (Ist/Soll)" Foreground="#9CA3AF" />
+                    <TextBlock Text="{Binding BreakStatusText}" Foreground="#F9FAFB" FontSize="24" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Margin="10,0,0,0" CornerRadius="12" Background="#1A2333" Padding="14">
+                <StackPanel>
+                    <TextBlock Text="Sollzeit" Foreground="#9CA3AF" />
+                    <TextBlock Text="{Binding TargetDurationText}" Foreground="#F9FAFB" FontSize="24" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Margin="10,0,0,0" CornerRadius="12" Background="#1A2333" Padding="14">
+                <StackPanel>
+                    <TextBlock Text="Über/Fehl" Foreground="#9CA3AF" />
+                    <TextBlock Foreground="#F9FAFB" FontSize="18" FontWeight="SemiBold">
+                        <Run Text="+"/>
+                        <Run Text="{Binding OvertimeText, Mode=OneWay}" />
+                        <Run Text=" / -" />
+                        <Run Text="{Binding MissingText, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <Border Grid.Row="2" CornerRadius="14" Background="#0F172A" Padding="12">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                    <TextBlock VerticalAlignment="Center" Text="Zeitraum:" Margin="0,0,8,0" Foreground="#E5E7EB" />
+                    <ComboBox
+                        Width="140"
+                        ItemsSource="{Binding AvailablePeriods}"
+                        SelectedItem="{Binding SelectedPeriod}" />
+                    <Button Content="Laden" Width="90" Click="Load_Click" />
+                    <Button Content="CSV Export" Width="110" Click="ExportCsv_Click" />
+                    <Button Content="PDF Export" Width="110" Click="ExportPdf_Click" />
+                </StackPanel>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="2.2*" />
+                        <RowDefinition Height="0.15*" />
+                        <RowDefinition Height="1*" />
+                    </Grid.RowDefinitions>
+
+                    <DataGrid
+                        x:Name="EntriesGrid"
+                        Grid.Row="0"
+                        ItemsSource="{Binding Entries}"
+                        AutoGenerateColumns="False"
+                        CanUserAddRows="False"
+                        IsReadOnly="False"
+                        Background="#111827"
+                        Foreground="#E5E7EB"
+                        BorderBrush="#334155"
+                        GridLinesVisibility="Horizontal"
+                        RowBackground="#0B1220"
+                        AlternatingRowBackground="#0F172A">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding Id}" Header="ID" IsReadOnly="True" Width="60" />
+                            <DataGridTextColumn Binding="{Binding StartLocalText, UpdateSourceTrigger=LostFocus}" Header="Start (yyyy-MM-dd HH:mm)" Width="170" />
+                            <DataGridTextColumn Binding="{Binding EndLocalText, UpdateSourceTrigger=LostFocus}" Header="Ende (yyyy-MM-dd HH:mm)" Width="170" />
+                            <DataGridTextColumn Binding="{Binding Category, UpdateSourceTrigger=PropertyChanged}" Header="Kategorie" Width="120" />
+                            <DataGridTextColumn Binding="{Binding Description, UpdateSourceTrigger=PropertyChanged}" Header="Beschreibung" Width="*" />
+                            <DataGridTemplateColumn Header="Aktion" Width="170">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button
+                                                Content="Speichern"
+                                                Margin="0,0,6,0"
+                                                Padding="8,2"
+                                                Click="SaveRow_Click" />
+                                            <Button
+                                                Content="Löschen"
+                                                Background="#B91C1C"
+                                                BorderBrush="#B91C1C"
+                                                Padding="8,2"
+                                                Click="DeleteRow_Click" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock
+                        Grid.Row="1"
+                        Margin="0,10,0,6"
+                        Foreground="#9CA3AF"
+                        FontWeight="SemiBold"
+                        Text="Chronik Über-/Fehlstunden (täglich)" />
+
+                    <DataGrid
+                        Grid.Row="2"
+                        ItemsSource="{Binding DailyBalances}"
+                        AutoGenerateColumns="False"
+                        CanUserAddRows="False"
+                        IsReadOnly="True"
+                        Background="#0B1325"
+                        Foreground="#D1D5DB"
+                        BorderBrush="#334155"
+                        GridLinesVisibility="Horizontal"
+                        RowBackground="#0B1220"
+                        AlternatingRowBackground="#0F172A">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Binding="{Binding DayText}" Header="Tag" Width="130" />
+                            <DataGridTextColumn Binding="{Binding ProductiveText}" Header="Ist" Width="110" />
+                            <DataGridTextColumn Binding="{Binding TargetText}" Header="Soll" Width="110" />
+                            <DataGridTextColumn Binding="{Binding BalanceText}" Header="Saldo" Width="110" />
+                            <DataGridTextColumn Binding="{Binding CumulativeText}" Header="Kumuliert" Width="130" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <TextBlock
+            Grid.Row="3"
+            Margin="2,12,2,0"
+            Foreground="#64748B"
+            Text="Hinweis: Kategorien, Projekte und Ring-Segmente werden als nächstes dynamisch aus einer Konfiguration geladen." />
+    </Grid>
+</Window>

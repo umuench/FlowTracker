@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+    <!-- WPF + Native AOT via PublishAot currently fails with NETSDK1168; we keep runtime lean and prepare for future AOT support. -->
+    <PublishAot>false</PublishAot>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper">
+      <Version>2.1.72</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Data.Sqlite">
+      <Version>10.0.5</Version>
+    </PackageReference>
+    <PackageReference Include="H.NotifyIcon.Wpf">
+      <Version>2.4.1</Version>
+    </PackageReference>
+    <PackageReference Include="QuestPDF" Version="2026.2.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Icons\*.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="FlowTracker.Tests\**\*.cs" />
+    <EmbeddedResource Remove="FlowTracker.Tests\**\*" />
+    <None Remove="FlowTracker.Tests\**\*" />
+    <Compile Remove="artifacts\**\*.cs;**\artifacts\**\*.cs" />
+    <EmbeddedResource Remove="artifacts\**\*;**\artifacts\**\*" />
+    <None Remove="artifacts\**\*;**\artifacts\**\*" />
+  </ItemGroup>
+</Project>

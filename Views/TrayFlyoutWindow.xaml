@@ -1,0 +1,55 @@
+<Window
+    x:Class="FlowTracker.Views.TrayFlyoutWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Width="320"
+    Height="210"
+    WindowStyle="None"
+    ResizeMode="NoResize"
+    ShowInTaskbar="False"
+    Topmost="True"
+    Background="#FF1E1E22"
+    AllowsTransparency="False">
+    <Border
+        BorderBrush="#FF3A3A42"
+        BorderThickness="1"
+        CornerRadius="8"
+        Padding="14">
+        <StackPanel>
+            <TextBlock
+                FontSize="16"
+                FontWeight="SemiBold"
+                Foreground="#FFF3F3F4"
+                Text="FlowTracker heute" />
+            <TextBlock
+                x:Name="SummaryTextBlock"
+                Margin="0,10,0,4"
+                Foreground="#FFD6D6D8"
+                Text="0,00h • Pausiert" />
+            <TextBlock
+                x:Name="GhostModeTextBlock"
+                Foreground="#FFFFC98E"
+                Visibility="Collapsed"
+                Text="Ghost Mode ist aktiv" />
+
+            <StackPanel Margin="0,14,0,0">
+                <Button
+                    Height="30"
+                    Margin="0,0,0,8"
+                    Content="Dashboard öffnen"
+                    Click="OpenDashboard_Click" />
+                <Button
+                    x:Name="StopTrackingButton"
+                    Height="30"
+                    Margin="0,0,0,8"
+                    Content="Tracking stoppen"
+                    Click="StopTracking_Click" />
+                <Button
+                    x:Name="GhostModeButton"
+                    Height="30"
+                    Content="Ghost Mode aktivieren"
+                    Click="GhostMode_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

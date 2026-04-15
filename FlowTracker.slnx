@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FlowTracker.csproj" />
+  <Project Path="FlowTracker.Tests/FlowTracker.Tests.csproj" />
+</Solution>

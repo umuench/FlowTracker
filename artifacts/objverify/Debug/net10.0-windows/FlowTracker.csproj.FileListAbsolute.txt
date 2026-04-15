@@ -1,0 +1,14 @@
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\FlowTracker.csproj.AssemblyReference.cache
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\Views\DashboardWindow.baml
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\Views\OrbitalWindow.baml
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\Views\TrayFlyoutWindow.baml
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\Views\DashboardWindow.g.cs
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\Views\OrbitalWindow.g.cs
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\Views\TrayFlyoutWindow.g.cs
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\App.g.cs
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\FlowTracker_MarkupCompile.cache
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\FlowTracker.g.resources
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\FlowTracker.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\FlowTracker.AssemblyInfoInputs.cache
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\FlowTracker.AssemblyInfo.cs
+C:\Users\umuench\Development\Csharp\TimeTracker\artifacts\objverify\Debug\net10.0-windows\FlowTracker.csproj.CoreCompileInputs.cache
