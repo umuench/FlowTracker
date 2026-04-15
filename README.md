@@ -120,7 +120,7 @@ Aktuell implementiert:
   - optionale Hook-Signaturen: `SetWindowsHookEx`, `UnhookWindowsHookEx`, `CallNextHookEx`
 - Ressourcenschonender Idle-Monitor in `Services/IdleMonitorService.cs`
   - `PeriodicTimer` mit 250ms Polling
-  - Idle-Schwelle bei 2 Sekunden
+  - Idle-Schwelle profilbasiert (`quiet`/`balanced`/`strict`, Default `balanced` = 8s)
   - Events für Idle-Statuswechsel und Mauspositionsänderung
 - Integration in `App.xaml.cs`
   - Start des Monitors beim App-Startup
@@ -142,7 +142,8 @@ Aktuell implementiert:
 - `Interop/NativeMethods.cs`
   - erweitert um `GetWindowLongPtr` und `SetWindowLongPtr` für Ex-Styles
 - `App.xaml.cs`
-  - Overlay wird bei Idle (>= 2s) am letzten Mauspunkt angezeigt
+  - Overlay-/Reminder-Entscheidung läuft über zentrale Display-Policy mit No-Show-Reason-Codes
+  - Bei Idle erscheint zunächst ein dezenter Dot (unten rechts), Eskalation auf Orbital erfolgt adaptiv
   - Overlay verschwindet wieder bei Aktivität
 
 ## Schritt-4 Status (Datenbank + MVVM)
@@ -229,9 +230,25 @@ Aktuell implementiert:
   - Fallback auf Rohmenü, falls Filterung temporär keine auswählbaren Aktionen liefert
   - Telemetrie zu Show/Hide-Gründen, Sichtdauer und Quick-Dismiss-Serien im Log (`app.log`)
   - Adaptives Hide-Tuning: bei wiederholten schnellen Abbrüchen erhöht das Overlay temporär Grace/Debounce automatisch
+  - Dynamische Reopen-Suppression berücksichtigt Quick-Dismiss-Streak und ignorierte Reminder
+  - Focus-aware Suppression (erste Ausbaustufe): Orbital/Reminder werden bei Vollbild und bei fokussensitiven Prozessen unterdrückt (`devenv`, `code`, `rider64`, `winword`, `excel`, `powerpnt`, `teams`, `ms-teams`)
 - Zeitformat-Härtung:
   - Repository persistiert UTC-Zeiten als ISO-8601 (`O`) in SQLite
   - robustes Parse-Fallback für ältere Bestandswerte
+
+## Reminder-Profile (neu)
+
+- Profilsteuerung über Umgebungsvariable `FLOWTRACKER_REMINDER_PROFILE`
+- Verfügbare Profile:
+  - `quiet` (zurückhaltend, längere Idle-/Cooldown-Zeiten)
+  - `balanced` (Default)
+  - `strict` (frühere und häufigere Erinnerung)
+- Beispiel in PowerShell:
+
+```powershell
+$env:FLOWTRACKER_REMINDER_PROFILE = "quiet"
+dotnet run --project "FlowTracker.csproj" -c Debug
+```
 
 ## Tests
 

@@ -5,6 +5,7 @@ using FlowTracker.Repositories;
 using FlowTracker.Services;
 using FlowTracker.ViewModels;
 using FlowTracker.Views;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Threading;
@@ -15,13 +16,7 @@ namespace FlowTracker;
 
 public partial class App : System.Windows.Application
 {
-    private static readonly TimeSpan IdleThreshold = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
-    private static readonly TimeSpan OrbitalSelectionWindow = TimeSpan.FromSeconds(8);
-    private static readonly TimeSpan OrbitalReopenCooldown = TimeSpan.FromSeconds(24);
-    private static readonly TimeSpan OrbitalInteractionPinWindow = TimeSpan.FromSeconds(7);
-    private static readonly TimeSpan PostSelectionActivityWindow = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan ReminderEscalationCooldown = TimeSpan.FromSeconds(20);
     private const string SingleInstanceMutexName = @"Global\FlowTracker.SingleInstance";
 
     private Mutex? _singleInstanceMutex;
@@ -59,6 +54,18 @@ public partial class App : System.Windows.Application
     private DateTimeOffset _lastReminderEscalationUtc;
     private OrbitalReminderLevel _reminderLevel = OrbitalReminderLevel.DotOnly;
     private readonly Dictionary<OrbitalNoShowReason, int> _noShowCounters = [];
+    private readonly HashSet<string> _focusSuppressedProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "devenv",
+        "code",
+        "rider64",
+        "winword",
+        "excel",
+        "powerpnt",
+        "teams",
+        "ms-teams"
+    };
+    private readonly OrbitalBehaviorProfile _behaviorProfile = ResolveBehaviorProfile();
     private int _lastMouseX;
     private int _lastMouseY;
     private bool _hasMousePosition;
@@ -237,10 +244,11 @@ public partial class App : System.Windows.Application
 
     private void InitializeIdleMonitor()
     {
-        _idleMonitor = new IdleMonitorService(PollInterval, IdleThreshold);
+        _idleMonitor = new IdleMonitorService(PollInterval, _behaviorProfile.IdleThreshold);
         _idleMonitor.IdleStateChanged += OnIdleStateChanged;
         _idleMonitor.MousePositionChanged += OnMousePositionChanged;
         _idleMonitor.Start();
+        _ = _logger?.InfoAsync($"Reminder-Profil aktiv: {_behaviorProfile.Name} (idle={_behaviorProfile.IdleThreshold.TotalSeconds:F0}s).");
     }
 
     private void InitializeDataLayer()
@@ -397,7 +405,7 @@ public partial class App : System.Windows.Application
             ApplyDynamicSuppression("menu-invoked");
             _isOrbitalInteractionPinned = false;
             _awaitingPostSelectionActivity = true;
-            _awaitingPostSelectionUntilUtc = DateTimeOffset.UtcNow.Add(PostSelectionActivityWindow);
+            _awaitingPostSelectionUntilUtc = DateTimeOffset.UtcNow.Add(_behaviorProfile.PostSelectionActivityWindow);
         }
         catch (Exception ex)
         {
@@ -651,6 +659,11 @@ public partial class App : System.Windows.Application
                 $"suppressed-until={_orbitalSuppressedUntilUtc:O}");
         }
 
+        if (ShouldSuppressForForegroundContext(out var focusReason))
+        {
+            return OrbitalDisplayDecision.None(OrbitalNoShowReason.FocusSensitiveContext, focusReason);
+        }
+
         if (_orbitalWindow?.IsReadyForInteraction == true)
         {
             return OrbitalDisplayDecision.None(OrbitalNoShowReason.AlreadyVisible, "orbital already visible");
@@ -723,8 +736,8 @@ public partial class App : System.Windows.Application
         }
 
         _orbitalWindow?.ShowAt(_lastMouseX, _lastMouseY, visibleMenuItems);
-        _orbitalSelectionUntilUtc = DateTimeOffset.UtcNow.Add(OrbitalSelectionWindow);
-        _orbitalInteractionPinnedUntilUtc = DateTimeOffset.UtcNow.Add(OrbitalInteractionPinWindow);
+        _orbitalSelectionUntilUtc = DateTimeOffset.UtcNow.Add(_behaviorProfile.SelectionWindow);
+        _orbitalInteractionPinnedUntilUtc = DateTimeOffset.UtcNow.Add(_behaviorProfile.InteractionPinWindow);
         _isOrbitalInteractionPinned = true;
     }
 
@@ -776,11 +789,48 @@ public partial class App : System.Windows.Application
 
     private void ApplyDynamicSuppression(string source)
     {
-        var seconds = OrbitalReopenCooldown.TotalSeconds
+        var seconds = _behaviorProfile.ReopenCooldown.TotalSeconds
             + (_lastQuickDismissStreak * 9)
             + (_ignoredReminderCount * 6);
         _orbitalSuppressedUntilUtc = DateTimeOffset.UtcNow.AddSeconds(seconds);
         _ = _logger?.InfoAsync($"Orbital suppression: source={source}, seconds={seconds:F0}, streak={_lastQuickDismissStreak}, ignored={_ignoredReminderCount}.");
+    }
+
+    private bool ShouldSuppressForForegroundContext(out string reason)
+    {
+        reason = string.Empty;
+        if (!_behaviorProfile.EnableFocusSuppression)
+        {
+            return false;
+        }
+
+        if (NativeMethods.IsForegroundWindowFullscreen())
+        {
+            reason = "foreground fullscreen";
+            return true;
+        }
+
+        if (!NativeMethods.TryGetForegroundWindowProcessId(out var processId))
+        {
+            return false;
+        }
+
+        try
+        {
+            var process = Process.GetProcessById(processId);
+            var name = process.ProcessName;
+            if (!_focusSuppressedProcesses.Contains(name))
+            {
+                return false;
+            }
+
+            reason = $"focus process suppressed ({name})";
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private IReadOnlyList<RadialMenuItemDefinition> GetVisibleRadialMenuItems(IReadOnlyList<WorkAction>? precomputedAllowedActions = null)
@@ -902,7 +952,7 @@ public partial class App : System.Windows.Application
                 $"durationMs={e.VisibleDuration.TotalMilliseconds:F0}, distance={e.DistanceFromAnchor:F1}, details={e.Details}).");
         }
 
-        if (DateTimeOffset.UtcNow - _lastReminderEscalationUtc >= ReminderEscalationCooldown && _ignoredReminderCount > 0)
+        if (DateTimeOffset.UtcNow - _lastReminderEscalationUtc >= _behaviorProfile.ReminderEscalationCooldown && _ignoredReminderCount > 0)
         {
             _reminderLevel = OrbitalReminderLevel.Orbital;
             _lastReminderEscalationUtc = DateTimeOffset.UtcNow;
@@ -1044,6 +1094,17 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 
+    private static OrbitalBehaviorProfile ResolveBehaviorProfile()
+    {
+        var profileName = Environment.GetEnvironmentVariable("FLOWTRACKER_REMINDER_PROFILE");
+        return profileName?.Trim().ToLowerInvariant() switch
+        {
+            "quiet" => OrbitalBehaviorProfile.Quiet,
+            "strict" => OrbitalBehaviorProfile.Strict,
+            _ => OrbitalBehaviorProfile.Balanced
+        };
+    }
+
     private enum OrbitalDisplayMode
     {
         None,
@@ -1064,6 +1125,7 @@ public partial class App : System.Windows.Application
         GhostMode,
         AwaitingPostSelection,
         Suppressed,
+        FocusSensitiveContext,
         AlreadyVisible,
         NoAllowedActions,
         NoMousePosition,
