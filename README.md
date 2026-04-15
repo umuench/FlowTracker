@@ -248,6 +248,9 @@ FlowTracker unterstützt drei Reminder-Profile:
 - `balanced`: Standardprofil
 - `strict`: frühere und häufigere Erinnerung
 
+Profile können direkt im Tray-Menü umgestellt werden (`Reminder-Profil`) und werden in `%LocalAppData%/FlowTracker/settings.json` gespeichert.
+Zusätzlich gibt es im Tray-Menü den Eintrag `Einstellungen`, um Profil und Fokus-App-Liste komfortabel zu bearbeiten.
+
 Steuerung per Umgebungsvariable:
 
 ```powershell

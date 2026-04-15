@@ -30,9 +30,12 @@ public partial class App : System.Windows.Application
     private DashboardWindow? _dashboardWindow;
     private TrayFlyoutWindow? _trayFlyoutWindow;
     private ReminderDotWindow? _reminderDotWindow;
+    private SettingsWindow? _settingsWindow;
     private ITimeEntryRepository? _timeEntryRepository;
     private IBreakPolicyRepository? _breakPolicyRepository;
     private ReportExportService? _reportExportService;
+    private AppSettingsService? _appSettingsService;
+    private AppSettings _appSettings = new();
     private AppLogger? _logger;
     private IReadOnlyList<RadialMenuItemDefinition> _radialMenuItems = [];
     private Icon? _activeTrayIcon;
@@ -54,6 +57,17 @@ public partial class App : System.Windows.Application
     private DateTimeOffset _lastReminderEscalationUtc;
     private OrbitalReminderLevel _reminderLevel = OrbitalReminderLevel.DotOnly;
     private readonly Dictionary<OrbitalNoShowReason, int> _noShowCounters = [];
+    private static readonly string[] DefaultFocusSuppressedProcesses =
+    [
+        "devenv",
+        "code",
+        "rider64",
+        "winword",
+        "excel",
+        "powerpnt",
+        "teams",
+        "ms-teams"
+    ];
     private readonly HashSet<string> _focusSuppressedProcesses = new(StringComparer.OrdinalIgnoreCase)
     {
         "devenv",
@@ -65,7 +79,8 @@ public partial class App : System.Windows.Application
         "teams",
         "ms-teams"
     };
-    private readonly OrbitalBehaviorProfile _behaviorProfile = ResolveBehaviorProfile();
+    private readonly Dictionary<string, WinForms.ToolStripMenuItem> _profileMenuItems = new(StringComparer.OrdinalIgnoreCase);
+    private OrbitalBehaviorProfile _behaviorProfile = OrbitalBehaviorProfile.Balanced;
     private int _lastMouseX;
     private int _lastMouseY;
     private bool _hasMousePosition;
@@ -146,6 +161,7 @@ public partial class App : System.Windows.Application
         {
             _dashboardWindow?.Close();
             _trayFlyoutWindow?.Close();
+            _settingsWindow?.Close();
             if (_reminderDotWindow is not null)
             {
                 _reminderDotWindow.DotClicked -= OnReminderDotClicked;
@@ -158,6 +174,7 @@ public partial class App : System.Windows.Application
         }
         _trayFlyoutWindow = null;
         _reminderDotWindow = null;
+        _settingsWindow = null;
         _dashboardWindow = null;
         _orbitalWindow = null;
         _dashboardViewModel = null;
@@ -220,12 +237,23 @@ public partial class App : System.Windows.Application
         ghostModeItem.Click += (_, _) => Dispatcher.Invoke(() => _ = ToggleGhostModeAsync(ghostModeItem.Checked, fromFlyout: false));
         _ghostModeMenuItem = ghostModeItem;
 
+        var reminderProfileItem = new WinForms.ToolStripMenuItem("Reminder-Profil");
+        AddProfileMenuItem(reminderProfileItem, "quiet", "Quiet");
+        AddProfileMenuItem(reminderProfileItem, "balanced", "Balanced");
+        AddProfileMenuItem(reminderProfileItem, "strict", "Strict");
+        UpdateProfileMenuChecks(_behaviorProfile.Name);
+
+        var settingsItem = new WinForms.ToolStripMenuItem("Einstellungen");
+        settingsItem.Click += (_, _) => Dispatcher.Invoke(OpenSettingsWindow);
+
         var exitItem = new WinForms.ToolStripMenuItem("Beenden");
         exitItem.Click += (_, _) => Dispatcher.BeginInvoke(RequestShutdown);
 
         contextMenu.Items.Add(dashboardItem);
         contextMenu.Items.Add(stopItem);
         contextMenu.Items.Add(ghostModeItem);
+        contextMenu.Items.Add(reminderProfileItem);
+        contextMenu.Items.Add(settingsItem);
         contextMenu.Items.Add(new WinForms.ToolStripSeparator());
         contextMenu.Items.Add(exitItem);
 
@@ -244,6 +272,14 @@ public partial class App : System.Windows.Application
 
     private void InitializeIdleMonitor()
     {
+        if (_idleMonitor is not null)
+        {
+            _idleMonitor.IdleStateChanged -= OnIdleStateChanged;
+            _idleMonitor.MousePositionChanged -= OnMousePositionChanged;
+            _idleMonitor.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            _idleMonitor = null;
+        }
+
         _idleMonitor = new IdleMonitorService(PollInterval, _behaviorProfile.IdleThreshold);
         _idleMonitor.IdleStateChanged += OnIdleStateChanged;
         _idleMonitor.MousePositionChanged += OnMousePositionChanged;
@@ -253,9 +289,21 @@ public partial class App : System.Windows.Application
 
     private void InitializeDataLayer()
     {
-        var databasePath = Path.Combine(
+        var appDataDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "FlowTracker",
+            "FlowTracker");
+
+        var settingsPath = Path.Combine(appDataDirectory, "settings.json");
+        _appSettingsService = new AppSettingsService(settingsPath);
+        _appSettings = _appSettingsService.LoadAsync().GetAwaiter().GetResult();
+        var configuredProfile = string.IsNullOrWhiteSpace(_appSettings.ReminderProfile)
+            ? Environment.GetEnvironmentVariable("FLOWTRACKER_REMINDER_PROFILE")
+            : _appSettings.ReminderProfile;
+        ApplyBehaviorProfile(configuredProfile, persist: false, restartIdleMonitor: false);
+        ApplyFocusSuppressionProcesses(_appSettings.FocusSuppressedProcesses, persist: false);
+
+        var databasePath = Path.Combine(
+            appDataDirectory,
             "flowtracker.db");
 
         var options = new SqliteOptions(databasePath);
@@ -543,6 +591,33 @@ public partial class App : System.Windows.Application
         _ = _logger?.InfoAsync("Dashboard geöffnet.");
     }
 
+    private void OpenSettingsWindow()
+    {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        var snapshot = new AppSettings
+        {
+            ReminderProfile = _appSettings.ReminderProfile,
+            FocusSuppressedProcesses = [.. _focusSuppressedProcesses]
+        };
+
+        var window = new SettingsWindow(snapshot);
+        _settingsWindow = window;
+        window.Closed += (_, _) => _settingsWindow = null;
+        var result = window.ShowDialog();
+
+        if (result == true && window.ResultSettings is { } updated)
+        {
+            ApplyBehaviorProfile(updated.ReminderProfile, persist: true, restartIdleMonitor: true);
+            ApplyFocusSuppressionProcesses(updated.FocusSuppressedProcesses, persist: true);
+            _ = _logger?.InfoAsync("Einstellungen gespeichert.");
+        }
+    }
+
     private async Task RefreshAfterDashboardChangeAsync()
     {
         if (_trackingViewModel is null)
@@ -632,6 +707,82 @@ public partial class App : System.Windows.Application
         _ = _logger?.InfoAsync(_isGhostMode
             ? fromFlyout ? "Ghost Mode aktiviert (Flyout)." : "Ghost Mode aktiviert."
             : fromFlyout ? "Ghost Mode deaktiviert (Flyout)." : "Ghost Mode deaktiviert.");
+    }
+
+    private void AddProfileMenuItem(WinForms.ToolStripMenuItem parent, string profileName, string label)
+    {
+        var item = new WinForms.ToolStripMenuItem(label)
+        {
+            CheckOnClick = false
+        };
+        item.Click += (_, _) => Dispatcher.Invoke(() => ApplyBehaviorProfile(profileName, persist: true, restartIdleMonitor: true));
+        parent.DropDownItems.Add(item);
+        _profileMenuItems[profileName] = item;
+    }
+
+    private void UpdateProfileMenuChecks(string activeProfileName)
+    {
+        foreach (var pair in _profileMenuItems)
+        {
+            pair.Value.Checked = string.Equals(pair.Key, activeProfileName, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private void ApplyBehaviorProfile(string? profileName, bool persist, bool restartIdleMonitor)
+    {
+        var normalized = NormalizeProfileName(profileName);
+        _behaviorProfile = normalized switch
+        {
+            "quiet" => OrbitalBehaviorProfile.Quiet,
+            "strict" => OrbitalBehaviorProfile.Strict,
+            _ => OrbitalBehaviorProfile.Balanced
+        };
+
+        _appSettings.ReminderProfile = _behaviorProfile.Name;
+        UpdateProfileMenuChecks(_behaviorProfile.Name);
+
+        if (persist && _appSettingsService is not null)
+        {
+            _ = _appSettingsService.SaveAsync(_appSettings);
+        }
+
+        if (restartIdleMonitor)
+        {
+            InitializeIdleMonitor();
+        }
+
+        _ = _logger?.InfoAsync($"Reminder-Profil gesetzt: {_behaviorProfile.Name}.");
+    }
+
+    private void ApplyFocusSuppressionProcesses(IEnumerable<string>? processes, bool persist)
+    {
+        _focusSuppressedProcesses.Clear();
+        var source = processes?.Where(static value => !string.IsNullOrWhiteSpace(value)).Select(static value => value.Trim()).ToList();
+        if (source is null || source.Count == 0)
+        {
+            source = [.. DefaultFocusSuppressedProcesses];
+        }
+
+        foreach (var process in source.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            _focusSuppressedProcesses.Add(process);
+        }
+
+        _appSettings.FocusSuppressedProcesses = [.. _focusSuppressedProcesses.OrderBy(static value => value, StringComparer.OrdinalIgnoreCase)];
+        if (persist && _appSettingsService is not null)
+        {
+            _ = _appSettingsService.SaveAsync(_appSettings);
+        }
+    }
+
+    private static string NormalizeProfileName(string? profileName)
+    {
+        if (string.IsNullOrWhiteSpace(profileName))
+        {
+            return "balanced";
+        }
+
+        return profileName.Trim().ToLowerInvariant();
     }
 
     private OrbitalDisplayDecision EvaluateDisplayDecision(IdleStateChangedEventArgs e)
@@ -1099,17 +1250,6 @@ public partial class App : System.Windows.Application
 
         _isShuttingDown = true;
         Shutdown();
-    }
-
-    private static OrbitalBehaviorProfile ResolveBehaviorProfile()
-    {
-        var profileName = Environment.GetEnvironmentVariable("FLOWTRACKER_REMINDER_PROFILE");
-        return profileName?.Trim().ToLowerInvariant() switch
-        {
-            "quiet" => OrbitalBehaviorProfile.Quiet,
-            "strict" => OrbitalBehaviorProfile.Strict,
-            _ => OrbitalBehaviorProfile.Balanced
-        };
     }
 
     private enum OrbitalDisplayMode

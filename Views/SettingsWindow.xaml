@@ -1,0 +1,54 @@
+<Window
+    x:Class="FlowTracker.Views.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="FlowTracker Settings"
+    Width="520"
+    Height="460"
+    WindowStartupLocation="CenterScreen">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock
+            Grid.Row="0"
+            Margin="0,0,0,8"
+            FontSize="16"
+            FontWeight="SemiBold"
+            Text="Reminder und Fokus-Einstellungen" />
+
+        <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,12">
+            <TextBlock Margin="0,0,0,4" Text="Reminder-Profil" />
+            <ComboBox x:Name="ProfileComboBox" Width="220">
+                <ComboBoxItem Content="Balanced" Tag="balanced" />
+                <ComboBoxItem Content="Quiet" Tag="quiet" />
+                <ComboBoxItem Content="Strict" Tag="strict" />
+            </ComboBox>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Vertical">
+            <TextBlock Margin="0,0,0,4" Text="Fokus-Unterdrückung (ein Prozessname pro Zeile)" />
+            <TextBox
+                x:Name="ProcessesTextBox"
+                AcceptsReturn="True"
+                VerticalScrollBarVisibility="Auto"
+                HorizontalScrollBarVisibility="Disabled"
+                TextWrapping="NoWrap"
+                FontFamily="Consolas"
+                MinHeight="220" />
+            <TextBlock
+                Margin="0,8,0,0"
+                Foreground="#6B7280"
+                Text="Beispiele: devenv, code, teams, winword" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+            <Button Width="100" Margin="0,0,8,0" Content="Abbrechen" Click="Cancel_Click" />
+            <Button Width="100" Content="Speichern" Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+</Window>
