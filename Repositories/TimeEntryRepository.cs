@@ -4,6 +4,9 @@ using FlowTracker.Infrastructure;
 
 namespace FlowTracker.Repositories;
 
+/// <summary>
+/// SQLite/Dapper-Implementierung für Zeitbuchungen.
+/// </summary>
 public sealed class TimeEntryRepository(SqliteConnectionFactory connectionFactory) : ITimeEntryRepository
 {
     private readonly SqliteConnectionFactory _connectionFactory = connectionFactory;
@@ -20,8 +23,13 @@ public sealed class TimeEntryRepository(SqliteConnectionFactory connectionFactor
         public bool IsDeleted { get; init; }
     }
 
+    /// <inheritdoc />
     public async Task<TimeEntry> StartTrackingAsync(string userId, string category, string description, DateTimeOffset startTimeUtc, CancellationToken cancellationToken = default)
     {
+        // EVA:
+        // E: Benutzer, Kategorie, Beschreibung, Startzeit.
+        // V: offene Buchung beenden und neuen Datensatz vorbereiten.
+        // A: neuen TimeEntry persistieren und als Domänenobjekt zurückgeben.
         await StopTrackingAsync(userId, startTimeUtc, cancellationToken).ConfigureAwait(false);
 
         await using var connection = _connectionFactory.CreateOpenConnection();
@@ -57,6 +65,7 @@ public sealed class TimeEntryRepository(SqliteConnectionFactory connectionFactor
         };
     }
 
+    /// <inheritdoc />
     public async Task StopTrackingAsync(string userId, DateTimeOffset endTimeUtc, CancellationToken cancellationToken = default)
     {
         await using var connection = _connectionFactory.CreateOpenConnection();
@@ -75,6 +84,7 @@ public sealed class TimeEntryRepository(SqliteConnectionFactory connectionFactor
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     public async Task<IReadOnlyList<TimeEntry>> GetEntriesAsync(string userId, DateTimeOffset fromUtc, DateTimeOffset toUtc, bool includeDeleted = false, CancellationToken cancellationToken = default)
     {
         await using var connection = _connectionFactory.CreateOpenConnection();
@@ -121,6 +131,7 @@ public sealed class TimeEntryRepository(SqliteConnectionFactory connectionFactor
         }).ToList();
     }
 
+    /// <inheritdoc />
     public async Task UpdateEntryAsync(TimeEntry entry, CancellationToken cancellationToken = default)
     {
         await using var connection = _connectionFactory.CreateOpenConnection();
@@ -149,6 +160,7 @@ public sealed class TimeEntryRepository(SqliteConnectionFactory connectionFactor
             cancellationToken: cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
     public async Task DeleteEntryAsync(long id, string userId, CancellationToken cancellationToken = default)
     {
         await using var connection = _connectionFactory.CreateOpenConnection();

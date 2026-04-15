@@ -10,6 +10,8 @@
     <!-- WPF + Native AOT via PublishAot currently fails with NETSDK1168; we keep runtime lean and prepare for future AOT support. -->
     <PublishAot>false</PublishAot>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

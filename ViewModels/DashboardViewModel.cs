@@ -6,6 +6,9 @@ using System.IO;
 
 namespace FlowTracker.ViewModels;
 
+/// <summary>
+/// Liefert Dashboard-Daten, Kennzahlen und Exportfunktionen für einen Benutzer.
+/// </summary>
 public sealed class DashboardViewModel(
     ITimeEntryRepository repository,
     IBreakPolicyRepository breakPolicyRepository,
@@ -27,7 +30,14 @@ public sealed class DashboardViewModel(
     private string _missingText = "0.00h";
     private ReportSummary _lastSummary = ReportSummary.Empty;
 
+    /// <summary>
+    /// Editierbare Eintragsliste für die Chronik.
+    /// </summary>
     public ObservableCollection<EditableTimeEntryRow> Entries { get; } = [];
+
+    /// <summary>
+    /// Tagesweise Saldenzeilen inkl. kumulierter Werte.
+    /// </summary>
     public ObservableCollection<DailyBalanceRow> DailyBalances { get; } = [];
 
     public IReadOnlyList<ReportingPeriod> AvailablePeriods { get; } =
@@ -92,8 +102,15 @@ public sealed class DashboardViewModel(
         private set => SetProperty(ref _missingText, value);
     }
 
+    /// <summary>
+    /// Lädt Daten für den ausgewählten Zeitraum und berechnet alle Dashboard-KPIs.
+    /// </summary>
     public async Task LoadAsync(CancellationToken cancellationToken = default)
     {
+        // EVA:
+        // E: SelectedPeriod und aktuelle Zeit.
+        // V: Daten laden, KPI/Saldo/Break/Targets berechnen, Summary aufbauen.
+        // A: ObservableCollections und Text-KPIs für das UI aktualisieren.
         var (fromUtc, toUtc) = CalculateRange(SelectedPeriod, DateTimeOffset.Now);
         var entries = await _repository.GetEntriesAsync(_userId, fromUtc, toUtc, includeDeleted: false, cancellationToken).ConfigureAwait(false);
 
@@ -143,6 +160,9 @@ public sealed class DashboardViewModel(
         StatusMessage = $"{entries.Count} Einträge geladen (Saldo {balance.TotalHours:+0.00;-0.00;0.00}h)";
     }
 
+    /// <summary>
+    /// Validiert und speichert einen bearbeiteten Chronik-Eintrag.
+    /// </summary>
     public async Task<bool> SaveAsync(EditableTimeEntryRow row, CancellationToken cancellationToken = default)
     {
         if (!row.TryBuildTimeEntry(out var entry))
@@ -156,6 +176,9 @@ public sealed class DashboardViewModel(
         return true;
     }
 
+    /// <summary>
+    /// Löscht einen Eintrag per Soft Delete.
+    /// </summary>
     public async Task DeleteAsync(EditableTimeEntryRow row, CancellationToken cancellationToken = default)
     {
         await _repository.DeleteEntryAsync(row.Id, _userId, cancellationToken).ConfigureAwait(false);
@@ -163,6 +186,9 @@ public sealed class DashboardViewModel(
         StatusMessage = $"Eintrag #{row.Id} gelöscht";
     }
 
+    /// <summary>
+    /// Exportiert die aktuelle Sicht als CSV-Datei.
+    /// </summary>
     public async Task ExportCsvAsync(string filePath, CancellationToken cancellationToken = default)
     {
         var entries = BuildDomainEntriesForExport();
@@ -170,6 +196,9 @@ public sealed class DashboardViewModel(
         StatusMessage = $"CSV exportiert: {Path.GetFileName(filePath)}";
     }
 
+    /// <summary>
+    /// Exportiert die aktuelle Sicht als PDF-Bericht.
+    /// </summary>
     public async Task ExportPdfAsync(string filePath, CancellationToken cancellationToken = default)
     {
         var entries = BuildDomainEntriesForExport();
@@ -192,6 +221,9 @@ public sealed class DashboardViewModel(
         return list;
     }
 
+    /// <summary>
+    /// Ermittelt UTC-Zeitgrenzen für den gewählten Reporting-Zeitraum.
+    /// </summary>
     public static (DateTimeOffset FromUtc, DateTimeOffset ToUtc) CalculateRange(ReportingPeriod period, DateTimeOffset nowLocal)
     {
         var localDate = nowLocal.Date;
@@ -219,6 +251,9 @@ public sealed class DashboardViewModel(
         return local.ToUniversalTime();
     }
 
+    /// <summary>
+    /// Berechnet die Soll-Arbeitszeit im Zeitraum auf Basis von Werktagen.
+    /// </summary>
     public static TimeSpan CalculateTargetDuration(DateTimeOffset fromUtc, DateTimeOffset toUtc, TimeSpan targetPerWorkday)
     {
         var fromLocal = fromUtc.ToLocalTime().Date;
@@ -227,6 +262,9 @@ public sealed class DashboardViewModel(
         return TimeSpan.FromTicks(targetPerWorkday.Ticks * workdays);
     }
 
+    /// <summary>
+    /// Baut eine tägliche Saldochronik für den Zeitraum.
+    /// </summary>
     public static IReadOnlyList<DailyBalanceRow> BuildDailyBalances(
         IReadOnlyList<TimeEntry> entries,
         DateTimeOffset fromUtc,
@@ -274,6 +312,9 @@ public sealed class DashboardViewModel(
         }
     }
 
+    /// <summary>
+    /// Zählt Werktage (Mo-Fr) im übergebenen lokalen Datumsbereich.
+    /// </summary>
     public static int CountWorkdays(DateTime fromLocalInclusive, DateTime toLocalExclusive)
     {
         if (toLocalExclusive <= fromLocalInclusive)
@@ -294,6 +335,9 @@ public sealed class DashboardViewModel(
     }
 }
 
+/// <summary>
+/// Repräsentiert eine Zeile der täglichen Soll-/Ist-Bilanz im Dashboard.
+/// </summary>
 public sealed record DailyBalanceRow(
     DateTime Day,
     TimeSpan Productive,

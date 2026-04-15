@@ -5,6 +5,9 @@ using System.Collections.ObjectModel;
 
 namespace FlowTracker.ViewModels;
 
+/// <summary>
+/// Koordiniert die Laufzeit-Zeiterfassung (Tracking), Regeln und Datenpersistenz für den aktuellen Benutzer.
+/// </summary>
 public sealed class TrackingViewModel(ITimeEntryRepository repository, string userId) : ViewModelBase
 {
     private readonly ITimeEntryRepository _repository = repository;
@@ -19,6 +22,9 @@ public sealed class TrackingViewModel(ITimeEntryRepository repository, string us
     private bool _hasStartedToday;
     private DateTimeOffset? _fixedBreakStartedAtUtc;
 
+    /// <summary>
+    /// Heutige, nicht gelöschte Tracking-Einträge im UI.
+    /// </summary>
     public ObservableCollection<TimeEntry> Entries { get; } = [];
 
     public string CurrentCategory
@@ -45,15 +51,24 @@ public sealed class TrackingViewModel(ITimeEntryRepository repository, string us
         private set => SetProperty(ref _sessionState, value);
     }
 
+    /// <summary>
+    /// Summierte, heute abgeschlossene Arbeitszeit.
+    /// </summary>
     public TimeSpan TodayLoggedDuration =>
         Entries.Where(static e => !e.IsDeleted && e.EndTime is not null)
             .Aggregate(TimeSpan.Zero, static (acc, item) => acc + (item.EndTime!.Value - item.StartTime));
 
+    /// <summary>
+    /// Kennzeichnet den Fall "Tracking läuft, aber Kontext ist noch generisch".
+    /// </summary>
     public bool NeedsContextReminder =>
         IsTracking
         && SessionState == WorkSessionState.Working
         && string.Equals(CurrentCategory, "Arbeit", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Lädt alle Einträge des aktuellen Tages und rekonstruiert den Session-Status.
+    /// </summary>
     public async Task LoadTodayEntriesAsync(CancellationToken cancellationToken = default)
     {
         var now = DateTimeOffset.Now;
@@ -73,8 +88,15 @@ public sealed class TrackingViewModel(ITimeEntryRepository repository, string us
         RebuildSessionStateFromEntries();
     }
 
+    /// <summary>
+    /// Startet oder wechselt eine Kategorie unter Beachtung der Zustandsregeln.
+    /// </summary>
     public async Task SelectCategoryAsync(string category, string? description = null, CancellationToken cancellationToken = default)
     {
+        // EVA:
+        // E: Kategorie + optionale Beschreibung vom UI.
+        // V: Aktion auf WorkAction abbilden, Regelwerk prüfen, Repository-Write synchronisieren.
+        // A: Trackingstatus aktualisieren und Tagesliste neu laden.
         var action = ResolveActionForCategory(category);
         if (!TryApplyAction(action, out var blockedReason))
         {
@@ -99,6 +121,9 @@ public sealed class TrackingViewModel(ITimeEntryRepository repository, string us
         await LoadTodayEntriesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Beendet das aktive Tracking regelkonform.
+    /// </summary>
     public async Task StopTrackingAsync(CancellationToken cancellationToken = default)
     {
         if (!TryApplyAction(WorkAction.EndWork, out var blockedReason))
@@ -128,18 +153,27 @@ public sealed class TrackingViewModel(ITimeEntryRepository repository, string us
         await LoadTodayEntriesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Aktualisiert einen bestehenden Eintrag und synchronisiert die Tagesansicht.
+    /// </summary>
     public async Task UpdateEntryAsync(TimeEntry entry, CancellationToken cancellationToken = default)
     {
         await _repository.UpdateEntryAsync(entry, cancellationToken).ConfigureAwait(false);
         await LoadTodayEntriesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Markiert einen Eintrag als gelöscht (Soft Delete) und synchronisiert die Tagesansicht.
+    /// </summary>
     public async Task DeleteEntryAsync(long id, CancellationToken cancellationToken = default)
     {
         await _repository.DeleteEntryAsync(id, _userId, cancellationToken).ConfigureAwait(false);
         await LoadTodayEntriesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Versucht eine Aktion auf den aktuellen Session-Zustand anzuwenden.
+    /// </summary>
     public bool TryApplyAction(WorkAction action, out string message)
     {
         var context = CreateRuleContext();
@@ -157,6 +191,9 @@ public sealed class TrackingViewModel(ITimeEntryRepository repository, string us
         return true;
     }
 
+    /// <summary>
+    /// Liefert alle aktuell erlaubten Aktionen für den UI-Filter.
+    /// </summary>
     public IReadOnlyList<WorkAction> GetAllowedActions() =>
         WorkStateMachine.GetAllowedActions(SessionState, CreateRuleContext());
 

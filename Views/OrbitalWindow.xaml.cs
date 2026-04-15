@@ -12,6 +12,9 @@ using MediaColor = System.Windows.Media.Color;
 
 namespace FlowTracker.Views;
 
+/// <summary>
+/// Rendert das radiale Overlay-Menü und steuert dessen Interaktions- und Hide-Verhalten.
+/// </summary>
 public partial class OrbitalWindow : Window
 {
     private const double WindowRadius = 160.0;
@@ -40,6 +43,9 @@ public partial class OrbitalWindow : Window
     private IReadOnlyList<RadialMenuItemDefinition> _currentItems = [];
     private readonly Stack<(IReadOnlyList<RadialMenuItemDefinition> Items, string Title)> _menuStack = [];
 
+    /// <summary>
+    /// Signalisiert, ob das Overlay sichtbar und aktuell interaktionsbereit ist.
+    /// </summary>
     public bool IsReadyForInteraction => _isVisible && !_isAnimating;
 
     public OrbitalWindow()
@@ -54,9 +60,19 @@ public partial class OrbitalWindow : Window
         Hide();
     }
 
+    /// <summary>
+    /// Event für finale Auswahlaktionen aus dem Radialmenü.
+    /// </summary>
     public event EventHandler<RadialMenuInvokedEventArgs>? MenuItemInvoked;
+
+    /// <summary>
+    /// Event für Schließvorgänge inklusive Grund und Sichtdauer.
+    /// </summary>
     public event EventHandler<OrbitalOverlayClosedEventArgs>? OverlayClosed;
 
+    /// <summary>
+    /// Zeigt das Overlay am angegebenen Ankerpunkt mit den bereitgestellten Menüeinträgen.
+    /// </summary>
     public void ShowAt(int x, int y, IReadOnlyList<RadialMenuItemDefinition> rootItems)
     {
         _anchorX = x;
@@ -94,6 +110,9 @@ public partial class OrbitalWindow : Window
         storyboard.Begin();
     }
 
+    /// <summary>
+    /// Blendet das Overlay animiert aus.
+    /// </summary>
     public void HideOverlay(OrbitalHideReason reason = OrbitalHideReason.Unknown)
     {
         if (!_isVisible || _isAnimating)
@@ -168,6 +187,10 @@ public partial class OrbitalWindow : Window
 
     private void OnProximityTick(object? sender, EventArgs e)
     {
+        // EVA:
+        // E: aktueller Cursorpunkt + Overlayzeitpunkt.
+        // V: Distanz/Timeout/Grace-Debounce-Regeln auswerten.
+        // A: Overlay bei Inaktivität oder Distanzverletzung schließen.
         if (!_isVisible || _isAnimating)
         {
             return;
@@ -424,6 +447,9 @@ public partial class OrbitalWindow : Window
     }
 }
 
+/// <summary>
+/// Menüaktions-Event aus dem Orbital mit Kontextinformationen.
+/// </summary>
 public readonly record struct RadialMenuInvokedEventArgs(
     string ActionKey,
     string Label,
@@ -431,6 +457,9 @@ public readonly record struct RadialMenuInvokedEventArgs(
     int AnchorY,
     DateTimeOffset TimestampUtc);
 
+/// <summary>
+/// Gründe für das Schließen des Orbital-Overlays.
+/// </summary>
 public enum OrbitalHideReason
 {
     Unknown,
@@ -441,12 +470,18 @@ public enum OrbitalHideReason
     GhostMode
 }
 
+/// <summary>
+/// Arten von Telemetrieereignissen des Orbital-Overlays.
+/// </summary>
 public enum OrbitalTelemetryEventKind
 {
     ShowSkippedAlreadyVisible,
     Hidden
 }
 
+/// <summary>
+/// Telemetriedaten eines Orbital-Ereignisses.
+/// </summary>
 public readonly record struct OrbitalTelemetryEventArgs(
     OrbitalTelemetryEventKind EventKind,
     int AnchorX,
@@ -457,6 +492,9 @@ public readonly record struct OrbitalTelemetryEventArgs(
     int QuickDismissStreak,
     string Details);
 
+/// <summary>
+/// Zusammenfassung beim Schließen des Overlays.
+/// </summary>
 public readonly record struct OrbitalOverlayClosedEventArgs(
     OrbitalHideReason Reason,
     TimeSpan VisibleDuration,

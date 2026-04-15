@@ -2,8 +2,14 @@ using FlowTracker.Domain;
 
 namespace FlowTracker.Services;
 
+/// <summary>
+/// Enthält das zentrale Regelwerk für erlaubte Zustandsübergänge der Zeiterfassung.
+/// </summary>
 public static class WorkStateMachine
 {
+    /// <summary>
+    /// Führt einen Zustandsübergang mit Standardkontext aus.
+    /// </summary>
     public static TransitionResult Transition(WorkSessionState currentState, WorkAction action, DateOnly stateDay, DateOnly today)
     {
         var context = new WorkRuleContext(
@@ -20,6 +26,10 @@ public static class WorkStateMachine
 
     public static TransitionResult Transition(WorkSessionState currentState, WorkAction action, WorkRuleContext context)
     {
+        // EVA:
+        // E: aktueller State, gewünschte Action, RuleContext.
+        // V: Tageswechsel normalisieren, erlaubte Actions bestimmen, Übergang auswerten.
+        // A: TransitionResult mit NextState oder Blockierungsgrund zurückgeben.
         if (context.StateDay != context.Today && currentState == WorkSessionState.Ended)
         {
             currentState = WorkSessionState.OffDuty;
@@ -159,12 +169,18 @@ public static class WorkStateMachine
     };
 }
 
+/// <summary>
+/// Ergebnis einer Transition inklusive Zielzustand und Benutzerhinweis.
+/// </summary>
 public readonly record struct TransitionResult(bool IsAllowed, WorkSessionState NextState, string Message)
 {
     public static TransitionResult Ok(WorkSessionState next, string message) => new(true, next, message);
     public static TransitionResult Invalid(string message) => new(false, default, message);
 }
 
+/// <summary>
+/// Laufzeitkontext für die Auswertung der Arbeitsregeln.
+/// </summary>
 public readonly record struct WorkRuleContext(
     DateOnly Today,
     DateOnly StateDay,

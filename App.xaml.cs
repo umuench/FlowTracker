@@ -281,6 +281,10 @@ public partial class App : System.Windows.Application
     {
         Dispatcher.Invoke(() =>
         {
+            // EVA:
+            // E: Idle-Event (IsIdle, Dauer, Timestamp) + aktueller App-/Tracking-Kontext.
+            // V: Policy auswerten (Suppression, Fokuskontext, AllowedActions, ReminderLevel).
+            // A: Dot/Orbital anzeigen oder unterdrücken, Telemetrie-/NoShow-Reason loggen.
             if (_trayIcon is null)
             {
                 return;
@@ -632,6 +636,9 @@ public partial class App : System.Windows.Application
 
     private OrbitalDisplayDecision EvaluateDisplayDecision(IdleStateChangedEventArgs e)
     {
+        // API-Vertrag:
+        // Gibt eine deterministische Anzeigeentscheidung für den aktuellen Idle-Zeitpunkt zurück.
+        // Side-Effects sind auf minimale Korrekturen von internen Flags begrenzt.
         if (_isShuttingDown)
         {
             return OrbitalDisplayDecision.None(OrbitalNoShowReason.Shutdown, "shutdown active");

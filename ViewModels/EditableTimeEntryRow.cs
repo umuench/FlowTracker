@@ -3,6 +3,9 @@ using System.Globalization;
 
 namespace FlowTracker.ViewModels;
 
+/// <summary>
+/// UI-Adapter für editierbare Zeiteinträge mit Textfeldern im lokalen Zeitformat.
+/// </summary>
 public sealed class EditableTimeEntryRow(TimeEntry source) : ViewModelBase
 {
     private const string DateTimeFormat = "yyyy-MM-dd HH:mm";
@@ -41,8 +44,15 @@ public sealed class EditableTimeEntryRow(TimeEntry source) : ViewModelBase
         set => SetProperty(ref _description, value);
     }
 
+    /// <summary>
+    /// Baut aus den editierten Textwerten ein gültiges <see cref="TimeEntry"/>-Objekt.
+    /// </summary>
     public bool TryBuildTimeEntry(out TimeEntry entry)
     {
+        // EVA:
+        // E: Start/Ende als lokale Zeitstrings aus dem UI.
+        // V: Parsing + Validierung + Umrechnung nach UTC.
+        // A: Domänenobjekt für Persistenz zurückgeben oder false bei Fehler.
         entry = default!;
 
         if (!DateTime.TryParseExact(StartLocalText, DateTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var startLocal))

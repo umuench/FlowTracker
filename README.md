@@ -120,6 +120,78 @@ stateDiagram-v2
     Ended --> Working: StartWork
 ```
 
+### Komponenten (Container View)
+
+```mermaid
+flowchart LR
+    subgraph ui [UI]
+        app[App.xaml.cs]
+        tray[TrayFlyoutWindow]
+        orbital[OrbitalWindow]
+        dot[ReminderDotWindow]
+        dash[DashboardWindow]
+    end
+
+    subgraph vm [ViewModels]
+        trackingVm[TrackingViewModel]
+        dashboardVm[DashboardViewModel]
+    end
+
+    subgraph domain [DomainAndServices]
+        idleSvc[IdleMonitorService]
+        stateMachine[WorkStateMachine]
+        reportSvc[ReportExportService]
+        profile[OrbitalBehaviorProfile]
+    end
+
+    subgraph data [DataAccess]
+        timeRepo[TimeEntryRepository]
+        breakRepo[BreakPolicyRepository]
+        dbInit[DatabaseInitializer]
+        sqlite[(SQLite)]
+    end
+
+    app --> idleSvc
+    app --> profile
+    app --> orbital
+    app --> dot
+    app --> tray
+    app --> dash
+    app --> trackingVm
+    app --> dashboardVm
+    trackingVm --> stateMachine
+    trackingVm --> timeRepo
+    dashboardVm --> breakRepo
+    dashboardVm --> timeRepo
+    dashboardVm --> reportSvc
+    timeRepo --> sqlite
+    breakRepo --> sqlite
+    dbInit --> sqlite
+```
+
+### Datenfluss: Tracking bis Reporting
+
+```mermaid
+flowchart TD
+    input[User Aktion im Tray oder Orbital] --> mapAction[Action Mapping im App Layer]
+    mapAction --> vmCall[TrackingViewModel.SelectCategoryAsync oder StopTrackingAsync]
+    vmCall --> validate[WorkStateMachine Transition und AllowedActions]
+    validate --> persist[Repository Persistenz mit UTC Zeitstempeln]
+    persist --> db[(SQLite TimeEntries and BreakPolicies)]
+    db --> reload[ViewModel Load und KPI Rebuild]
+    reload --> uiUpdate[Tray Status und Dashboard Binding]
+    reload --> export[CSV/PDF Export via ReportExportService]
+```
+
+## Architektur-Navigation
+
+- **App-Orchestrierung:** `App.xaml.cs`
+- **Reminder/Idle/Fokus-Logik:** `App.xaml.cs`, `Services/IdleMonitorService.cs`, `Interop/NativeMethods.cs`
+- **Regelwerk/State Machine:** `Services/WorkStateMachine.cs`
+- **Tracking-Domäne:** `ViewModels/TrackingViewModel.cs`, `Repositories/TimeEntryRepository.cs`
+- **Dashboard/Reporting:** `ViewModels/DashboardViewModel.cs`, `Services/ReportExportService.cs`
+- **UI-Komponenten:** `Views/OrbitalWindow.xaml(.cs)`, `Views/ReminderDotWindow.xaml(.cs)`, `Views/DashboardWindow.xaml(.cs)`
+
 ## Voraussetzungen
 
 - Windows 10/11
@@ -232,6 +304,15 @@ Die Erfassung wird über einen Zustandsautomaten geführt:
   - Show/Hide-Gründe
   - Sichtdauer
   - Quick-Dismiss-Streak
+
+## API-Dokumentation
+
+- Öffentliche Kernkomponenten sind mit XML-Kommentaren (`///`) dokumentiert.
+- EVA-Kommentare markieren zentrale Verarbeitungspfade:
+  - Eingabe (Input)
+  - Verarbeitung (Processing)
+  - Ausgabe (Output)
+- Das Projekt erzeugt bei Build automatisch eine XML-Dokumentationsdatei (`GenerateDocumentationFile=true`), die für API-Referenz, Tooling und spätere Doc-Pipelines verwendet werden kann.
 
 ## Datenschutz
 

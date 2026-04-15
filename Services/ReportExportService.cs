@@ -7,10 +7,20 @@ using System.Text;
 
 namespace FlowTracker.Services;
 
+/// <summary>
+/// Stellt Exportfunktionen für CSV und PDF auf Basis von Zeitbuchungen bereit.
+/// </summary>
 public sealed class ReportExportService
 {
+    /// <summary>
+    /// Exportiert Einträge als CSV-Datei inklusive optionaler Summary-Zeile.
+    /// </summary>
     public async Task ExportCsvAsync(string filePath, IEnumerable<TimeEntry> entries, ReportSummary? summary = null, CancellationToken cancellationToken = default)
     {
+        // EVA:
+        // E: Zielpfad, Einträge, optionale Summary.
+        // V: Werte serialisieren, CSV escapen, Summary anhängen.
+        // A: UTF-8 CSV-Datei auf Dateisystem schreiben.
         var lines = new StringBuilder();
         lines.AppendLine("Id,UserId,StartTimeUtc,EndTimeUtc,DurationHours,Category,Description,CreatedAtUtc,IsDeleted");
 
@@ -35,8 +45,15 @@ public sealed class ReportExportService
         await File.WriteAllTextAsync(filePath, lines.ToString(), Encoding.UTF8, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Exportiert Einträge als PDF-Bericht mit optionaler Summary im Footer.
+    /// </summary>
     public Task ExportPdfAsync(string filePath, string title, IEnumerable<TimeEntry> entries, ReportSummary? summary = null, CancellationToken cancellationToken = default)
     {
+        // EVA:
+        // E: Zielpfad, Titel, Einträge, optionale Summary.
+        // V: Dokumentlayout inkl. Tabelle und Footer aufbauen.
+        // A: PDF-Datei erzeugen und am Zielpfad ablegen.
         QuestPDF.Settings.License = LicenseType.Community;
         var entryList = entries.ToList();
 
@@ -103,6 +120,9 @@ public sealed class ReportExportService
     }
 }
 
+/// <summary>
+/// Zusammenfassung für Soll-/Ist-Auswertungen im Dashboard- und Exportkontext.
+/// </summary>
 public sealed record ReportSummary(
     TimeSpan ProductiveDuration,
     TimeSpan TargetDuration,
@@ -111,6 +131,9 @@ public sealed record ReportSummary(
     int EntryCount,
     string PeriodLabel)
 {
+    /// <summary>
+    /// Leere Summary für Initialzustände ohne Daten.
+    /// </summary>
     public static ReportSummary Empty { get; } = new(
         ProductiveDuration: TimeSpan.Zero,
         TargetDuration: TimeSpan.Zero,

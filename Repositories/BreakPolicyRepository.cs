@@ -4,10 +4,14 @@ using FlowTracker.Infrastructure;
 
 namespace FlowTracker.Repositories;
 
+/// <summary>
+/// SQLite/Dapper-Implementierung für Pausenrichtlinien.
+/// </summary>
 public sealed class BreakPolicyRepository(SqliteConnectionFactory connectionFactory) : IBreakPolicyRepository
 {
     private readonly SqliteConnectionFactory _connectionFactory = connectionFactory;
 
+    /// <inheritdoc />
     public async Task<BreakPolicy?> GetDefaultPolicyAsync(CancellationToken cancellationToken = default)
     {
         await using var connection = _connectionFactory.CreateOpenConnection();

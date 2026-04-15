@@ -2,6 +2,9 @@ using System.Windows;
 
 namespace FlowTracker.Views;
 
+/// <summary>
+/// Kompaktes Tray-Flyout für Schnellaktionen und Statusanzeige.
+/// </summary>
 public partial class TrayFlyoutWindow : Window
 {
     private readonly Action _openDashboard;
@@ -18,6 +21,9 @@ public partial class TrayFlyoutWindow : Window
         Deactivated += (_, _) => Hide();
     }
 
+    /// <summary>
+    /// Aktualisiert Zusammenfassung, Ghost-Status und Aktivierbarkeit der Aktionen.
+    /// </summary>
     public void UpdateSummary(double hoursToday, string status, bool isGhostMode, bool canStopTracking)
     {
         SummaryTextBlock.Text = $"{hoursToday:F2}h • {status}";

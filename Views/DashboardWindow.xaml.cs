@@ -9,6 +9,9 @@ using WpfSaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
 namespace FlowTracker.Views;
 
+/// <summary>
+/// Hostet die Dashboard-UI und delegiert Datenoperationen an <see cref="DashboardViewModel"/>.
+/// </summary>
 public partial class DashboardWindow : Window
 {
     private readonly DashboardViewModel _viewModel;
@@ -24,6 +27,9 @@ public partial class DashboardWindow : Window
         Loaded += OnLoaded;
     }
 
+    /// <summary>
+    /// Lädt das Fenstericon mit Fallback-Strategie.
+    /// </summary>
     private void ApplyWindowIcon()
     {
         var greenIconPath = Path.Combine(AppContext.BaseDirectory, "Icons", "TimeTrackerGreen.ico");
@@ -49,6 +55,9 @@ public partial class DashboardWindow : Window
         }
     }
 
+    /// <summary>
+    /// Lädt die initialen Dashboard-Daten beim Öffnen.
+    /// </summary>
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         await _viewModel.LoadAsync();
@@ -61,6 +70,10 @@ public partial class DashboardWindow : Window
 
     private async void SaveRow_Click(object sender, RoutedEventArgs e)
     {
+        // EVA:
+        // E: bearbeitete Zeile aus dem Button-DataContext.
+        // V: ViewModel-Validierung und Save ausführen.
+        // A: optional Callback triggern und UI-Status aktualisieren.
         if (sender is not WpfButton { DataContext: EditableTimeEntryRow row })
         {
             return;
@@ -81,6 +94,10 @@ public partial class DashboardWindow : Window
 
     private async void DeleteRow_Click(object sender, RoutedEventArgs e)
     {
+        // EVA:
+        // E: ausgewählte Zeile + Benutzerbestätigung.
+        // V: Soft Delete über ViewModel ausführen.
+        // A: Zeile aus UI entfernen und optionalen Refresh propagieren.
         if (sender is not WpfButton { DataContext: EditableTimeEntryRow row })
         {
             return;
@@ -108,6 +125,10 @@ public partial class DashboardWindow : Window
 
     private async void ExportCsv_Click(object sender, RoutedEventArgs e)
     {
+        // EVA:
+        // E: Zielpfad aus SaveFileDialog.
+        // V: Export über ViewModel starten.
+        // A: Erfolgsrückmeldung per MessageBox.
         var dialog = new WpfSaveFileDialog
         {
             Filter = "CSV-Datei (*.csv)|*.csv",
@@ -125,6 +146,10 @@ public partial class DashboardWindow : Window
 
     private async void ExportPdf_Click(object sender, RoutedEventArgs e)
     {
+        // EVA:
+        // E: Zielpfad aus SaveFileDialog.
+        // V: PDF-Export über ViewModel starten.
+        // A: Erfolgsrückmeldung per MessageBox.
         var dialog = new WpfSaveFileDialog
         {
             Filter = "PDF-Datei (*.pdf)|*.pdf",
